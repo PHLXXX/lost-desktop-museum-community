@@ -1,0 +1,26 @@
+name: Pull request catalog check
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: npm }
+      - run: npm ci
+      - name: Changed catalog paths
+        run: git diff --name-only "${{ github.event.pull_request.base.sha }}" "${{ github.sha }}" -- catalog | tee changed-catalog.txt
+      - run: npm run check
+      - name: Validation summary
+        if: always()
+        run: |
+          {
+            echo "## Archive Exchange validation"
+            echo "Catalog schema, package security, references, deterministic build, static site and links were checked."
+            echo "### Changed catalog paths"
+            sed 's/^/- `/' changed-catalog.txt | sed 's/$/`/' || true
+          } >> "$GITHUB_STEP_SUMMARY"

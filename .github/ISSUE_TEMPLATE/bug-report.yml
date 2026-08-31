@@ -1,0 +1,13 @@
+name: Registry or site bug
+description: Report a reproducible registry, static page, or download issue.
+title: "bug: "
+labels: [bug]
+body:
+  - type: input
+    id: page
+    attributes: { label: Affected path, description: Registry or Pages path without private data. }
+    validations: { required: true }
+  - type: textarea
+    id: steps
+    attributes: { label: Reproduction steps }
+    validations: { required: true }

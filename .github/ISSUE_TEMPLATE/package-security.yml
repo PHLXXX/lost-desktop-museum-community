@@ -1,0 +1,15 @@
+name: Package security concern
+description: Report a package integrity concern without sharing exploitable details.
+title: "security: package concern"
+labels: [security]
+body:
+  - type: markdown
+    attributes: { value: "For exploitable vulnerabilities, use a private GitHub Security Advisory instead of a public issue." }
+  - type: input
+    id: case
+    attributes: { label: Case ID and version }
+    validations: { required: true }
+  - type: textarea
+    id: observation
+    attributes: { label: Non-sensitive observation }
+    validations: { required: true }

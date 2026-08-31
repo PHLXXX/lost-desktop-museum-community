@@ -1,0 +1,17 @@
+name: Community content report
+description: Report content warnings, copyright, privacy, impersonation, or misleading content.
+title: "content: "
+labels: [content-report]
+body:
+  - type: input
+    id: case
+    attributes: { label: Case ID and version }
+    validations: { required: true }
+  - type: dropdown
+    id: category
+    attributes: { label: Category, options: [Package corruption, Inaccurate content warning, Copyright, Privacy, Impersonation, Malicious or misleading content, Other] }
+    validations: { required: true }
+  - type: textarea
+    id: summary
+    attributes: { label: Summary, description: Do not include saves, private notes, device identifiers, or investigation text. }
+    validations: { required: true }
