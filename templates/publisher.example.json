@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "publisherId": "your-publisher-id",
+  "displayName": "Your display name",
+  "description": "A concise description of your work.",
+  "githubUsername": "your-github-name",
+  "repositoryUrl": "https://github.com/your-github-name/your-repository",
+  "languages": ["zh-CN"],
+  "links": [],
+  "joinedAt": "2026-08-31T00:00:00.000Z",
+  "status": "active"
+}
