@@ -40,4 +40,11 @@ describe('catalog validation', () => {
     const result = await validateCatalog(catalog)
     expect(result.issues.map((issue) => issue.code)).toEqual(expect.arrayContaining(['PACKAGE_MISSING', 'CHANGELOG_MISSING', 'SCREENSHOT_MISSING']))
   })
+
+  it('rejects files in a version directory that are not registered by entry.json', async () => {
+    const catalog = await catalogCopy()
+    await writeFile(join(catalog, 'cases/case-community-sample-001/1.0.0/undeclared.bin'), 'not catalog data')
+    const result = await validateCatalog(catalog)
+    expect(result.issues).toContainEqual(expect.objectContaining({ code: 'UNREGISTERED_FILE', file: 'undeclared.bin' }))
+  })
 })

@@ -14,6 +14,20 @@ const blocked = new Set(['js', 'mjs', 'cjs', 'jsx', 'ts', 'tsx', 'html', 'htm', 
 function u16(bytes: Uint8Array, offset: number) { return bytes[offset]! | (bytes[offset + 1]! << 8) }
 function u32(bytes: Uint8Array, offset: number) { return (bytes[offset]! | (bytes[offset + 1]! << 8) | (bytes[offset + 2]! << 16) | (bytes[offset + 3]! << 24)) >>> 0 }
 function sha256(bytes: Uint8Array) { return createHash('sha256').update(bytes).digest('hex') }
+function ascii(bytes: Uint8Array, start: number, length: number) { return String.fromCharCode(...bytes.slice(start, start + length)) }
+function assetSignatureMatches(path: string, mime: unknown, bytes: Uint8Array) {
+  const extension = path.split('.').at(-1)?.toLowerCase() ?? ''
+  if (extension === 'png') return mime === 'image/png' && bytes.length >= 8 && [137, 80, 78, 71, 13, 10, 26, 10].every((value, index) => bytes[index] === value)
+  if (extension === 'jpg' || extension === 'jpeg') return mime === 'image/jpeg' && bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff
+  if (extension === 'webp') return mime === 'image/webp' && bytes.length >= 12 && ascii(bytes, 0, 4) === 'RIFF' && ascii(bytes, 8, 4) === 'WEBP'
+  if (extension === 'wav') return (mime === 'audio/wav' || mime === 'audio/x-wav') && bytes.length >= 12 && ascii(bytes, 0, 4) === 'RIFF' && ascii(bytes, 8, 4) === 'WAVE'
+  if (extension === 'ogg') return (mime === 'audio/ogg' || mime === 'application/ogg') && bytes.length >= 4 && ascii(bytes, 0, 4) === 'OggS'
+  if (extension === 'txt' || extension === 'md') {
+    if (bytes.some((byte) => byte === 0) || !['text/plain', 'text/markdown'].includes(String(mime))) return false
+    try { new TextDecoder('utf-8', { fatal: true }).decode(bytes); return true } catch { return false }
+  }
+  return false
+}
 
 function centralDirectory(bytes: Uint8Array): CentralEntry[] {
   let eocd = -1
@@ -125,15 +139,29 @@ export async function validateCasePackageBytes(bytes: Uint8Array, expected: Pack
   if (manifest.version !== expected.version || (definition.manifest as Record<string, unknown> | undefined)?.version !== expected.version) throw new Error('案件包version与目录或entry不一致。')
   const caseManifest = definition.manifest as Record<string, unknown> | undefined
   if (caseManifest?.builtIn !== false || caseManifest.author !== expected.publisherId) throw new Error('案件包发布者与entry不一致或冒充内置案件。')
-  for (const [path, expectedHash] of Object.entries(checksums)) if (!unpacked[path] || sha256(unpacked[path]!) !== expectedHash) throw new Error(`案件包SHA-256不匹配：${path}`)
+  if (definition.formatVersion !== 1 || typeof definition.title !== 'string' || !definition.title.trim() || manifest.title !== definition.title) throw new Error('案件包manifest与CaseDefinition标题或格式不一致。')
+  const requiredArrays = ['entities', 'applications', 'assets', 'timeline', 'folders', 'files', 'chats', 'emails', 'browser', 'calendar', 'photos', 'logs', 'audioTracks', 'broadcastEvents', 'dataTables', 'terminalEntries', 'versionDiffs', 'sitemap', 'clues', 'triggers', 'questions', 'resultLevels', 'coreEvidenceIds', 'correctContradictions']
+  for (const key of requiredArrays) if (!Array.isArray(definition[key])) throw new Error(`CaseDefinition字段缺失或类型错误：${key}`)
+  const expectedChecksumPaths = Object.keys(unpacked).filter((path) => path !== 'checksums.json').sort()
+  const declaredChecksumPaths = Object.keys(checksums).sort()
+  if (expectedChecksumPaths.length !== declaredChecksumPaths.length || expectedChecksumPaths.some((path, index) => path !== declaredChecksumPaths[index])) throw new Error('案件包checksums清单不完整或包含未知条目。')
+  for (const [path, expectedHash] of Object.entries(checksums)) if (!/^[a-f0-9]{64}$/.test(expectedHash) || !unpacked[path] || sha256(unpacked[path]!) !== expectedHash) throw new Error(`案件包SHA-256不匹配：${path}`)
   assertSafeContent(definition)
   const reachability = assertReachable(definition)
   const assets = Array.isArray(definition.assets) ? definition.assets as Record<string, unknown>[] : []
+  const referencedAssets = new Set<string>()
   for (const asset of assets) {
     const path = String(asset.path).startsWith('assets/') ? String(asset.path) : `assets/${String(asset.path)}`
+    assertSafeRelativePath(path)
+    if (referencedAssets.has(path)) throw new Error(`案件资源路径重复：${path}`)
+    referencedAssets.add(path)
     const content = unpacked[path]
     if (!content || content.length !== asset.size || sha256(content) !== asset.sha256) throw new Error(`案件资源声明不匹配：${String(asset.id)}`)
+    if (!assetSignatureMatches(path, asset.mime, content)) throw new Error(`案件资源文件签名与扩展名或MIME不一致：${String(asset.id)}`)
   }
+  const packagedAssets = Object.keys(unpacked).filter((path) => path.startsWith('assets/'))
+  if (packagedAssets.length !== referencedAssets.size || packagedAssets.some((path) => !referencedAssets.has(path))) throw new Error('案件包包含未登记资源或缺少资源引用。')
+  if (manifest.assetCount !== assets.length) throw new Error('案件包manifest资源数量与CaseDefinition不一致。')
   const applications = Array.isArray(definition.applications) ? definition.applications : []
   return { caseId: expected.caseId, version: expected.version, sha256: sha256(bytes), packageByteSize: bytes.length, unpackedByteSize, fileCount: entries.length, resourceCount: assets.length, clueCount: reachability.clueCount, applicationCount: applications.length, questionPoints: reachability.questionPoints }
 }

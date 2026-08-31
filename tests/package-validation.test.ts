@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises'
+import { createHash } from 'node:crypto'
 import { resolve } from 'node:path'
-import { strToU8, zipSync } from 'fflate'
+import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate'
 import { describe, expect, it } from 'vitest'
 import { validateCasePackageBytes } from '../src/validation/packageValidator'
 
@@ -23,5 +24,13 @@ describe('community case package validation', () => {
   it('rejects traversal and absolute paths before extraction', async () => {
     await expect(validateCasePackageBytes(zipSync({ '../case.json': strToU8('{}') }), entry)).rejects.toThrow(/路径/)
     await expect(validateCasePackageBytes(zipSync({ '/case.json': strToU8('{}') }), entry)).rejects.toThrow(/路径/)
+  })
+
+  it('rejects incomplete checksum coverage and unregistered assets', async () => {
+    const original = new Uint8Array(await readFile(resolve('catalog/cases/case-community-sample-001/1.0.0/case-community-sample-001-1.0.0.ldmcase')))
+    const missingChecksum = unzipSync(original); const checksums = JSON.parse(strFromU8(missingChecksum['checksums.json']!)) as Record<string, string>; delete checksums['case.json']; missingChecksum['checksums.json'] = strToU8(JSON.stringify(checksums))
+    await expect(validateCasePackageBytes(zipSync(missingChecksum), entry)).rejects.toThrow(/checksums清单/)
+    const extraAsset = unzipSync(original); const bytes = strToU8('undeclared'); extraAsset['assets/extra.txt'] = bytes; const complete = JSON.parse(strFromU8(extraAsset['checksums.json']!)) as Record<string, string>; complete['assets/extra.txt'] = createHash('sha256').update(bytes).digest('hex'); extraAsset['checksums.json'] = strToU8(JSON.stringify(complete))
+    await expect(validateCasePackageBytes(zipSync(extraAsset), entry)).rejects.toThrow(/未登记资源/)
   })
 })

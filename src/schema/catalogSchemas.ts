@@ -28,7 +28,9 @@ export const sourceEntrySchema = z.object({
   screenshotFiles: z.array(relativePath).min(1).max(5), license: z.object({ name: safeText.min(1).max(100), url: httpsUrl.optional(), customTextFile: relativePath.optional() }).strict(),
   distributionConsent: z.literal(true), saveCompatibility, status,
   moderation: z.object({ automatedValidationRequired: z.literal(true), curated: z.boolean(), featured: z.boolean(), notes: safeText.max(1000).optional() }).strict(), publishedAt: isoDate, updatedAt: isoDate,
-}).strict()
+}).strict().superRefine((value, context) => {
+  if (value.status === 'blocked' && !value.moderation.notes?.trim()) context.addIssue({ code: 'custom', path: ['moderation', 'notes'], message: 'blocked案件必须提供维护者阻止原因' })
+})
 
 const registrySummarySchema = z.object({
   caseId: identifier, latestVersion: semver, publisherId, title: safeText.min(1), subtitle: safeText.optional(), summary: safeText.min(1), language: z.string().min(2), additionalLanguages: z.array(z.string().min(2)),
@@ -53,7 +55,9 @@ export const registryCaseSchema = z.object({
   schemaVersion: z.literal(1), caseId: identifier, publisherId, title: safeText.min(1), subtitle: safeText.optional(), summary: safeText.min(1), language: z.string().min(2), additionalLanguages: z.array(z.string().min(2)),
   difficulty, estimatedMinutes: minutes, tags: z.array(safeText), contentRating: rating, contentWarnings: z.array(safeText), status, blockReason: safeText.optional(), curated: z.boolean(), featured: z.boolean(),
   publisherPath: relativePath, latestVersion: semver, versions: z.array(registryVersionSchema).min(1),
-}).strict()
+}).strict().superRefine((value, context) => {
+  if (value.status === 'blocked' && !value.blockReason?.trim()) context.addIssue({ code: 'custom', path: ['blockReason'], message: 'blocked案件必须提供阻止原因' })
+})
 
 export type Publisher = z.infer<typeof publisherSchema>
 export type SourceEntry = z.infer<typeof sourceEntrySchema>

@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { copyFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { copyFile, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { registryCaseSchema, registryIndexSchema, type RegistryCase, type RegistryIndex } from '../schema/catalogSchemas'
 import { validateCatalog } from '../validation/catalogValidator'
@@ -9,6 +9,14 @@ export interface BuildRegistryOptions { catalogRoot: string; outputRoot: string;
 function sha256(bytes: Uint8Array) { return createHash('sha256').update(bytes).digest('hex') }
 function json(value: unknown) { return `${JSON.stringify(value, null, 2)}\n` }
 async function put(path: string, value: string | Uint8Array) { await mkdir(dirname(path), { recursive: true }); await writeFile(path, value) }
+async function outputFiles(root: string, current = ''): Promise<string[]> {
+  const files: string[] = []
+  for (const item of await readdir(join(root, current), { withFileTypes: true })) {
+    const path = current ? `${current}/${item.name}` : item.name
+    if (item.isDirectory()) files.push(...await outputFiles(root, path)); else files.push(path)
+  }
+  return files
+}
 function compareSemver(left: string, right: string) { const a = left.split('.').map(Number); const b = right.split('.').map(Number); for (let i = 0; i < 3; i++) { const delta = (a[i] ?? 0) - (b[i] ?? 0); if (delta) return delta } return left.localeCompare(right) }
 function safeOutput(path: string) { const normalized = path.replaceAll('\\', '/'); if (!normalized || normalized === '/' || /^[A-Za-z]:\/?$/.test(normalized)) throw new Error('拒绝使用文件系统根目录作为构建输出。') }
 
@@ -33,13 +41,17 @@ export async function buildRegistry(options: BuildRegistryOptions): Promise<Regi
         const filename = source.split('/').at(-1)!; const target = `screenshots/${caseId}/${record.entry.version}/${filename}`
         await mkdir(join(options.outputRoot, dirname(target)), { recursive: true }); await copyFile(join(record.directory, source), join(options.outputRoot, target)); screenshots.push(target)
       }
+      if (record.entry.license.customTextFile) {
+        const licenseTarget = `licenses/${caseId}/${record.entry.version}.txt`
+        await mkdir(join(options.outputRoot, dirname(licenseTarget)), { recursive: true }); await copyFile(join(record.directory, record.entry.license.customTextFile), join(options.outputRoot, licenseTarget))
+      }
       versions.push({ version: record.entry.version, packagePath, packageSha256: record.package.sha256, packageByteSize: record.package.packageByteSize, engineCompatibility: record.entry.engineCompatibility,
         saveCompatibility: record.entry.saveCompatibility, changelog: record.changelog, screenshots, license: { name: record.entry.license.name, ...(record.entry.license.url ? { url: record.entry.license.url } : {}), ...(record.entry.license.customTextFile ? { customTextPath: `licenses/${caseId}/${record.entry.version}.txt` } : {}) },
         automatedValidation: { passed: true, checkedAt: options.generatedAt }, publishedAt: record.entry.publishedAt, updatedAt: record.entry.updatedAt })
     }
     const detail = registryCaseSchema.parse({ schemaVersion: 1, caseId, publisherId: latest.entry.publisherId, title: latest.entry.title, subtitle: latest.entry.subtitle, summary: latest.entry.summary,
       language: latest.entry.language, additionalLanguages: latest.entry.additionalLanguages, difficulty: latest.entry.difficulty, estimatedMinutes: latest.entry.estimatedMinutes, tags: latest.entry.tags,
-      contentRating: latest.entry.contentRating, contentWarnings: latest.entry.contentWarnings, status: latest.entry.status, curated: latest.entry.moderation.curated, featured: latest.entry.moderation.featured,
+      contentRating: latest.entry.contentRating, contentWarnings: latest.entry.contentWarnings, status: latest.entry.status, ...(latest.entry.status === 'blocked' ? { blockReason: latest.entry.moderation.notes } : {}), curated: latest.entry.moderation.curated, featured: latest.entry.moderation.featured,
       publisherPath: `registry/v1/publishers/${latest.entry.publisherId}.json`, latestVersion: latest.entry.version, versions })
     await put(join(options.outputRoot, `registry/v1/cases/${caseId}.json`), json(detail))
     summaries.push({ caseId, latestVersion: latest.entry.version, publisherId: latest.entry.publisherId, title: latest.entry.title, subtitle: latest.entry.subtitle, summary: latest.entry.summary,
@@ -53,8 +65,7 @@ export async function buildRegistry(options: BuildRegistryOptions): Promise<Regi
     featuredCaseIds: summaries.filter((item) => item.featured).map((item) => item.caseId), cases: summaries })
   await put(join(options.outputRoot, 'registry/v1/index.json'), json(index))
   await put(join(options.outputRoot, 'registry/v1/stats.json'), json(index.stats))
-  const checksumTargets = ['registry/v1/index.json', 'registry/v1/stats.json', ...summaries.map((item) => item.detailPath), ...[...catalog.publishers.keys()].map((id) => `registry/v1/publishers/${id}.json`),
-    ...catalog.entries.map((item) => `packages/${item.entry.caseId}/${item.entry.version}/${item.entry.caseId}-${item.entry.version}.ldmcase`)].sort()
+  const checksumTargets = (await outputFiles(options.outputRoot)).filter((path) => path !== 'registry/v1/checksums.json').sort()
   const checksums: Record<string, string> = {}
   for (const path of checksumTargets) checksums[path] = sha256(new Uint8Array(await readFile(join(options.outputRoot, path))))
   await put(join(options.outputRoot, 'registry/v1/checksums.json'), json(checksums))
