@@ -32,7 +32,17 @@ describe('deterministic registry and static site', () => {
     await buildRegistry({ catalogRoot: resolve('catalog'), outputRoot, generatedAt: '2026-08-31T00:00:00.000Z', sourceCommit: 'test-commit' })
     await buildStaticSite({ outputRoot })
     const paths = await files(outputRoot)
-    expect(paths).toEqual(expect.arrayContaining(['index.html', 'registry/v1/index.json', 'registry/v1/cases/case-community-sample-001.json', 'registry/v1/publishers/ldm-team.json', 'packages/case-community-sample-001/1.0.0/case-community-sample-001-1.0.0.ldmcase']))
+    expect(paths).toEqual(expect.arrayContaining([
+      'index.html',
+      'registry/v1/index.json',
+      'registry/v1/cases/case-community-sample-001.json',
+      'registry/v1/publishers/ldm-team.json',
+      'packages/case-community-sample-001/1.0.0/case-community-sample-001-1.0.0.ldmcase',
+      'packages/case-community-sample-001/1.0.1/case-community-sample-001-1.0.1.ldmcase',
+    ]))
+    const detail = JSON.parse(await readFile(join(outputRoot, 'registry/v1/cases/case-community-sample-001.json'), 'utf8')) as { latestVersion: string; versions: { version: string }[] }
+    expect(detail.latestVersion).toBe('1.0.1')
+    expect(detail.versions.map((version) => version.version)).toEqual(['1.0.0', '1.0.1'])
     const home = await readFile(join(outputRoot, 'index.html'), 'utf8')
     expect(home).not.toMatch(/<script|google-analytics|googletagmanager|plausible\.io/i)
     expect(home).toContain('无Cookie')

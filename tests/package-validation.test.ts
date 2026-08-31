@@ -33,4 +33,17 @@ describe('community case package validation', () => {
     const extraAsset = unzipSync(original); const bytes = strToU8('undeclared'); extraAsset['assets/extra.txt'] = bytes; const complete = JSON.parse(strFromU8(extraAsset['checksums.json']!)) as Record<string, string>; complete['assets/extra.txt'] = createHash('sha256').update(bytes).digest('hex'); extraAsset['checksums.json'] = strToU8(JSON.stringify(complete))
     await expect(validateCasePackageBytes(zipSync(extraAsset), entry)).rejects.toThrow(/未登记资源/)
   })
+
+  it('rejects application records that point to an unknown clue', async () => {
+    const original = new Uint8Array(await readFile(resolve('catalog/cases/case-community-sample-001/1.0.0/case-community-sample-001-1.0.0.ldmcase')))
+    const unpacked = unzipSync(original)
+    const definition = JSON.parse(strFromU8(unpacked['case.json']!)) as { browser: { clueId?: string }[] }
+    definition.browser[0]!.clueId = 'missing-clue'
+    unpacked['case.json'] = strToU8(JSON.stringify(definition))
+    const checksums = JSON.parse(strFromU8(unpacked['checksums.json']!)) as Record<string, string>
+    checksums['case.json'] = createHash('sha256').update(unpacked['case.json']!).digest('hex')
+    unpacked['checksums.json'] = strToU8(JSON.stringify(checksums))
+
+    await expect(validateCasePackageBytes(zipSync(unpacked), entry)).rejects.toThrow(/记录引用不存在的线索/)
+  })
 })

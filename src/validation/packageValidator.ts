@@ -100,6 +100,16 @@ function assertReachable(definition: Record<string, unknown>) {
   }
   for (const chat of Array.isArray(definition.chats) ? definition.chats as Record<string, unknown>[] : []) for (const message of Array.isArray(chat.messages) ? chat.messages as Record<string, unknown>[] : []) if (typeof message.id === 'string') itemIds.add(message.id)
   const clueIds = new Set(clues.flatMap((clue) => typeof clue.id === 'string' ? [clue.id] : []))
+  const clueRecords: Record<string, unknown>[] = []
+  for (const key of ['emails', 'browser', 'calendar', 'photos', 'logs']) {
+    for (const record of Array.isArray(definition[key]) ? definition[key] as Record<string, unknown>[] : []) clueRecords.push(record)
+  }
+  for (const chat of Array.isArray(definition.chats) ? definition.chats as Record<string, unknown>[] : []) {
+    for (const message of Array.isArray(chat.messages) ? chat.messages as Record<string, unknown>[] : []) clueRecords.push(message)
+  }
+  for (const record of clueRecords) {
+    if (typeof record.clueId === 'string' && !clueIds.has(record.clueId)) throw new Error(`记录引用不存在的线索：${record.clueId}`)
+  }
   const graph = new Map<string, string[]>()
   for (const clue of clues) {
     if (typeof clue.id !== 'string') throw new Error('线索ID无效。')

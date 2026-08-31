@@ -17,7 +17,7 @@ describe('catalog validation', () => {
   it('accepts the complete sample catalog', async () => {
     const result = await validateCatalog(resolve('catalog'))
     expect(result.issues).toEqual([])
-    expect(result.entries).toHaveLength(1)
+    expect(result.entries.map((record) => record.entry.version)).toEqual(['1.0.0', '1.0.1'])
   })
 
   it('reports a precise field path and fix hint for invalid entries', async () => {
