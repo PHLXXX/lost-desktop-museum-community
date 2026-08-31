@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://phlxxx.github.io/lost-desktop-museum-community/schemas/registry-case.schema.json",
+  "title": "CommunityRegistryCase",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "caseId", "publisherId", "title", "summary", "language", "difficulty", "estimatedMinutes", "tags", "contentRating", "contentWarnings", "status", "curated", "featured", "publisherPath", "latestVersion", "versions"],
+  "properties": {
+    "schemaVersion": { "const": 1 }, "caseId": { "type": "string" }, "publisherId": { "type": "string" }, "title": { "type": "string" }, "subtitle": { "type": "string" }, "summary": { "type": "string" }, "language": { "type": "string" }, "additionalLanguages": { "type": "array" }, "difficulty": { "enum": ["easy", "normal", "hard"] }, "estimatedMinutes": { "type": "object" }, "tags": { "type": "array" }, "contentRating": { "enum": ["general", "teen", "mature"] }, "contentWarnings": { "type": "array" }, "status": { "enum": ["active", "deprecated", "blocked"] }, "curated": { "type": "boolean" }, "featured": { "type": "boolean" }, "publisherPath": { "type": "string" }, "latestVersion": { "type": "string" }, "versions": { "type": "array", "minItems": 1, "items": { "type": "object", "required": ["version", "packagePath", "packageSha256", "packageByteSize", "engineCompatibility", "saveCompatibility", "changelog", "screenshots", "license", "automatedValidation", "publishedAt", "updatedAt"] } }
+  }
+}
