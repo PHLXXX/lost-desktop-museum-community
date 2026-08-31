@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "publisherId": "ldm-team",
+  "displayName": "Lost Desktop Museum Team",
+  "description": "维护档案交换站格式与教学示例案件。",
+  "githubUsername": "PHLXXX",
+  "repositoryUrl": "https://github.com/PHLXXX/lost-desktop-museum-community",
+  "languages": ["zh-CN", "en"],
+  "links": [
+    { "label": "主项目", "url": "https://github.com/PHLXXX/lost-desktop-museum" }
+  ],
+  "joinedAt": "2026-08-31T00:00:00.000Z",
+  "status": "active"
+}
