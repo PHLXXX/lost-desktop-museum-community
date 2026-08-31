@@ -1,0 +1,36 @@
+{
+  "name": "lost-desktop-museum-community",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint . --max-warnings=0",
+    "test": "vitest run",
+    "package:validate": "tsx scripts/validate-package.mjs",
+    "catalog:validate": "tsx scripts/validate-catalog.mjs",
+    "registry:build": "tsx scripts/build-registry.mjs",
+    "site:build": "tsx scripts/build-site.mjs",
+    "build:deterministic": "tsx scripts/verify-deterministic-build.mjs",
+    "links:check": "tsx scripts/check-links.mjs",
+    "build": "npm run registry:build && npm run site:build",
+    "check": "npm run typecheck && npm run lint && npm run test && npm run catalog:validate && npm run registry:build && npm run site:build && npm run links:check && npm run build:deterministic"
+  },
+  "dependencies": {
+    "fflate": "^0.8.3",
+    "zod": "^4.5.4"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^26.4.0",
+    "@vitest/coverage-v8": "^4.1.11",
+    "eslint": "^10.9.1",
+    "tsx": "^4.23.13",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.68.0",
+    "vitest": "^4.1.11"
+  }
+}
